@@ -4,7 +4,7 @@ library(MASS)
 library(glmnet)
 
 # Generate data (for illustration purposes)
-set.seed(987654321)
+set.seed(2026)
 n <- 1000    # Number of observations
 p <- 10      # Number of covariates
 o <- 0       # Counter for simulations
@@ -43,29 +43,29 @@ for (i in 1:p) {
 }
 
 while (o < Nsim) {
-  X_name.all <- paste0("X", 1:p)
-  
-  # Simulate covariates
+  X_name.all=paste0("X", 1:p)
+  # Covariates (simulated)
   X <- mvrnorm(n = n, mu = mean_vector, Sigma = cor_matrix)
   data.X <- as.data.frame(X)
   colnames(data.X) <- X_name.all
+  Z1 <-sample(c(0, 1), size = n, prob = c(0.6, 0.4), replace = TRUE)
+  Z2 <-rnorm(n,mean=0,sd=1)
   
-  # Simulate additional covariates Z1 (binary) and Z2 (normal)
-  Z1 <- sample(c(0, 1), size = n, prob = c(0.6, 0.4), replace = TRUE)
-  Z2 <- rnorm(n, mean = 0, sd = 1)
+  Z=matrix(c(Z1,Z2),ncol=2)
+  XZ=cbind(X, Z1,Z2)
   
-  Z <- matrix(c(Z1, Z2), ncol = 2)
-  XZ <- cbind(X, Z1, Z2)
+  shape_param <- 1.2   # >1 = increasing hazard, <1 = decreasing hazard
   
-  # Simulate survival times
   eta <- XZ %*% true_beta
   u <- runif(n)
-  survival_times0 <- -log(u) / (lambda * exp(eta))
   
-  # Censoring
-  cutt <- rexp(n, rate = 0.02)
+  # Weibull inversion method for survival times
+  survival_times0 <- (-log(u) / (lambda * exp(eta)))^(1 / shape_param)
+  # hist(survival_times0)
+  # Apply independent censoring
+  cutt <- rexp(n, rate = 0.02)   # censoring times
   delta <- ifelse(survival_times0 <= cutt, 1, 0)
-  survival_times <- ifelse(survival_times0 <= cutt, survival_times0, cutt)
+  survival_times <- pmin(survival_times0, cutt)
   
   ###########################################################
   #  Compute empirical quantiles as a matrix of proportions #
